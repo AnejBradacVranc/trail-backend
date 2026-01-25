@@ -13,7 +13,7 @@ import (
 
 func GetApplication(w http.ResponseWriter, r *http.Request, db *tools.DbInterface) {
 
-	applicationId := r.URL.Query().Get("application_id")
+	applicationId := r.PathValue("id")
 
 	if applicationId == "" {
 		log.Error("Application id is empty")

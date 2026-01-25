@@ -49,4 +49,8 @@ func Handler(r *http.ServeMux) {
 	r.HandleFunc("GET /applications", func(w http.ResponseWriter, r *http.Request) {
 		applications.GetApplications(w, r, db)
 	})
+
+	r.HandleFunc("GET /applications/{id}", func(w http.ResponseWriter, r *http.Request) {
+		applications.GetApplication(w, r, db)
+	})
 }
