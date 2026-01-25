@@ -46,11 +46,15 @@ func Handler(r *http.ServeMux) {
 		}
 	})
 
-	r.HandleFunc("GET /applications", func(w http.ResponseWriter, r *http.Request) {
+	r.HandleFunc("GET /user/applications", func(w http.ResponseWriter, r *http.Request) {
 		applications.GetApplications(w, r, db)
 	})
 
 	r.HandleFunc("GET /applications/{id}", func(w http.ResponseWriter, r *http.Request) {
 		applications.GetApplication(w, r, db)
+	})
+
+	r.HandleFunc("POST /applications", func(w http.ResponseWriter, r *http.Request) {
+		applications.CreateApplication(w, r, db)
 	})
 }

@@ -10,6 +10,10 @@ type Response[T any] struct {
 	Data T   `json:"data"`
 }
 
+type IDResp struct {
+	ID int64 `json:"id"`
+}
+
 type Message struct {
 	Message string `json:"message"`
 }
