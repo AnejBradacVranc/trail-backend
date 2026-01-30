@@ -16,6 +16,215 @@ type postgreSQL struct {
 	db *pgxpool.Pool
 }
 
+func (p *postgreSQL) GetStatisticsSummary(email string) ([]*StatisticsSummary, error) {
+
+	var period = "month"
+
+	//Skupni imenovalec mogoce da gre dolocit za kateri time span in za kateri status gledamo
+	//Total applications, active interviews, Response rate, Next coming up interview
+	applicationsStatsQuery := `
+	SELECT
+		this_month_count,
+		CASE
+			WHEN previous_month_count = 0 THEN NULL
+			ELSE ROUND(
+				((this_month_count - previous_month_count)::numeric
+				 / previous_month_count) * 100,
+				2
+			)
+		END AS delta,
+		
+		CASE
+			WHEN previous_month_count = 0 AND this_month_count > 0 THEN 'new'
+			WHEN this_month_count > previous_month_count THEN 'up'
+			WHEN this_month_count < previous_month_count THEN 'down'
+			ELSE 'flat'
+		END AS trend
+	FROM (
+		SELECT
+			COUNT(*) FILTER (
+				WHERE a.created_at >= date_trunc('month', CURRENT_DATE)
+			) AS this_month_count,
+			COUNT(*) FILTER (
+				WHERE a.created_at >= date_trunc('month', CURRENT_DATE) - INTERVAL '1 month'
+			  AND a.created_at <  date_trunc('month', CURRENT_DATE)
+			) AS previous_month_count
+		FROM applications a
+		JOIN users u ON u.user_id = a.user_id
+		WHERE u.email = $1
+	) as s`
+
+	row := p.db.QueryRow(context.Background(), applicationsStatsQuery, email)
+
+	applicationsStat := &StatisticsSummary{}
+	applicationsStat.Period = &period
+	applicationsStat.Name = "Total applications"
+	appStatText := "Total applications you applied for this month."
+	applicationsStat.SummaryText = &appStatText
+
+	err := row.Scan(&applicationsStat.Value, &applicationsStat.Delta, &applicationsStat.Trend)
+
+	if err != nil {
+		return nil, err
+	}
+
+	//Applications that are over the applied state
+	interviewsStatsQuery := `
+	SELECT
+		this_month_count,
+		CASE
+			WHEN previous_month_count = 0 THEN NULL
+			ELSE ROUND(
+				((this_month_count - previous_month_count)::numeric
+				 / previous_month_count) * 100,
+				2
+			)
+		END AS delta,
+		
+		CASE
+			WHEN previous_month_count = 0 AND this_month_count > 0 THEN 'new'
+			WHEN this_month_count > previous_month_count THEN 'up'
+			WHEN this_month_count < previous_month_count THEN 'down'
+			ELSE 'flat'
+		END AS trend
+	FROM (
+		SELECT
+			COUNT(*) FILTER (
+				WHERE a.created_at >= date_trunc('month', CURRENT_DATE)
+			) AS this_month_count,
+			COUNT(*) FILTER (
+				WHERE a.created_at >= date_trunc('month', CURRENT_DATE) - INTERVAL '1 month'
+			  AND a.created_at <  date_trunc('month', CURRENT_DATE)
+			) AS previous_month_count
+		FROM applications a
+		JOIN users u ON u.user_id = a.user_id
+		WHERE u.email = $1 AND a.status_id IN (2, 3, 4)
+	) as s`
+
+	row = p.db.QueryRow(context.Background(), interviewsStatsQuery, email)
+
+	interviewsStat := &StatisticsSummary{}
+	interviewsStat.Period = &period
+	interviewsStat.Name = "Active applications"
+	interviewsStatText := "Number of currently open job applications."
+	interviewsStat.SummaryText = &interviewsStatText
+
+	err = row.Scan(&interviewsStat.Value, &interviewsStat.Delta, &interviewsStat.Trend)
+
+	if err != nil {
+		return nil, err
+	}
+
+	//Share of applications that are over the applied state in relation to total applications
+
+	processedApplicationsQuery := `SELECT this_month_count,
+	CASE
+        WHEN this_month_count = 0 THEN NULL
+        ELSE ROUND(
+            ((this_month_processed_count)::numeric
+             / this_month_count) * 100,
+            2
+        )
+    END AS value,	
+	CASE
+        WHEN previous_month_count = 0 THEN NULL
+        ELSE ROUND(
+            ((previous_month_processed_count)::numeric
+             / previous_month_count) * 100,
+            2
+        )
+    END AS delta,
+	
+    CASE
+		WHEN previous_month_processed_count = 0 AND this_month_processed_count > 0 THEN 'new'
+        WHEN this_month_processed_count > previous_month_processed_count THEN 'up'
+        WHEN this_month_processed_count < previous_month_processed_count THEN 'down'
+        ELSE 'flat'
+    END AS trend
+FROM (
+    SELECT
+        COUNT(*) FILTER (
+            WHERE a.created_at >= date_trunc('month', CURRENT_DATE)
+        ) AS this_month_count,
+		COUNT (*) FILTER (  
+			WHERE a.created_at >= date_trunc('month', CURRENT_DATE) AND a.status_id != 1 
+		) as this_month_processed_count,	
+        COUNT(*) FILTER (
+            WHERE a.created_at >= date_trunc('month', CURRENT_DATE) - INTERVAL '1 month'
+          AND a.created_at <  date_trunc('month', CURRENT_DATE)
+        ) AS previous_month_count,
+			COUNT (*) FILTER (  
+			WHERE a.created_at >= date_trunc('month', CURRENT_DATE) - INTERVAL '1 month'
+          AND a.created_at <  date_trunc('month', CURRENT_DATE) AND a.status_id != 1 
+		) as previous_month_processed_count
+    FROM applications a
+	JOIN users u ON u.user_id = a.user_id
+	WHERE u.email = $1
+	) as p`
+
+	row = p.db.QueryRow(context.Background(), processedApplicationsQuery, email)
+
+	var percentUnit = "%"
+	var thisMonthApplicationsCount string
+	processedStat := &StatisticsSummary{}
+	processedStat.Period = &period
+	processedStat.Unit = &percentUnit
+
+	err = row.Scan(&thisMonthApplicationsCount, &processedStat.Value, &processedStat.Delta, &processedStat.Trend)
+
+	if err != nil {
+		return nil, err
+	}
+
+	processedStat.Name = "Processed applications"
+	processedStatText := fmt.Sprintf("Percentage of processed applications out of %s applied this month.", thisMonthApplicationsCount)
+	processedStat.SummaryText = &processedStatText
+
+	//Time to next interview
+
+	nextInterviewQuery := `SELECT
+    	a.interview_at,
+		EXTRACT(DAY FROM (a.interview_at - CURRENT_DATE)) AS days_until_interview
+		FROM applications a
+		JOIN users u ON u.user_id = a.user_id
+		WHERE a.status_id = 3
+		  AND a.interview_at >= CURRENT_DATE AND u.email = $1
+		ORDER BY a.interview_at
+		LIMIT 1;`
+
+	nextInterviewStatUnit := "d"
+	nextInterviewStat := &StatisticsSummary{}
+	nextInterviewStat.Unit = &nextInterviewStatUnit
+	nextInterviewStat.Name = "Time to next interview"
+	nextInterviewDefaultText := "No interviews scheduled yet."
+
+	var nextInterviewDate *time.Time
+
+	row = p.db.QueryRow(context.Background(), nextInterviewQuery, email)
+
+	err = row.Scan(&nextInterviewDate, &nextInterviewStat.Value)
+
+	if nextInterviewDate == nil || nextInterviewStat.Value == 0 {
+		nextInterviewStat.SummaryText = &nextInterviewDefaultText
+	} else {
+		text := fmt.Sprintf("Interview scheduled for %s.", nextInterviewDate.Format("02.01.2006"))
+		nextInterviewStat.SummaryText = &text
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	var stats []*StatisticsSummary
+
+	stats = append(stats, applicationsStat)
+	stats = append(stats, interviewsStat)
+	stats = append(stats, processedStat)
+	stats = append(stats, nextInterviewStat)
+
+	return stats, nil
+}
+
 func (p *postgreSQL) GetPlatforms() ([]*Platform, error) {
 
 	query := `SELECT platform_id, name, website, is_active FROM platforms`
@@ -190,20 +399,20 @@ func (p *postgreSQL) GetApplicationsFromUserByEmail(email string) ([]*Applicatio
 	return applications, nil
 }
 
-func (p *postgreSQL) CreateApplication(ctx context.Context, tx *pgx.Tx, userId int64, statusId int64, companyId int64, jobTitle string, platformId int64, jobUrl *string, salaryMin *int, salaryMax *int, appliedAt time.Time) (int64, error) {
+func (p *postgreSQL) CreateApplication(ctx context.Context, tx *pgx.Tx, userId int64, statusId int64, companyId int64, jobTitle string, platformId int64, jobUrl *string, salaryMin *int, salaryMax *int, appliedAt time.Time, interviewAt *time.Time) (int64, error) {
 
-	query := `INSERT INTO applications(USER_ID, STATUS_ID, COMPANY_ID, JOB_TITLE, PLATFORM_ID, JOB_URL, SALARY_MAX, SALARY_MIN, APPLIED_AT) 
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING application_id`
+	query := `INSERT INTO applications(USER_ID, STATUS_ID, COMPANY_ID, JOB_TITLE, PLATFORM_ID, JOB_URL, SALARY_MAX, SALARY_MIN, APPLIED_AT, INTERVIEW_AT) 
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING application_id`
 
 	var id int64
 
 	if tx != nil {
-		err := (*tx).QueryRow(ctx, query, userId, statusId, companyId, jobTitle, platformId, jobUrl, salaryMax, salaryMin, appliedAt).Scan(&id)
+		err := (*tx).QueryRow(ctx, query, userId, statusId, companyId, jobTitle, platformId, jobUrl, salaryMax, salaryMin, appliedAt, interviewAt).Scan(&id)
 		if err != nil {
 			return -1, err
 		}
 	} else {
-		err := p.db.QueryRow(ctx, query, userId, statusId, companyId, jobTitle, platformId, jobUrl, salaryMax, salaryMin, appliedAt).Scan(&id)
+		err := p.db.QueryRow(ctx, query, userId, statusId, companyId, jobTitle, platformId, jobUrl, salaryMax, salaryMin, appliedAt, interviewAt).Scan(&id)
 		if err != nil {
 			return -1, err
 		}

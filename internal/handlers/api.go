@@ -6,6 +6,7 @@ import (
 	"backend/internal/applications"
 	"backend/internal/platforms"
 	"backend/internal/services"
+	"backend/internal/statistics"
 	"backend/internal/tools"
 	"context"
 	"encoding/json"
@@ -60,6 +61,10 @@ func Handler(r *http.ServeMux) {
 
 	r.HandleFunc("GET /user/applications", func(w http.ResponseWriter, r *http.Request) {
 		applications.GetApplications(w, r, db)
+	})
+
+	r.HandleFunc("GET /user/statistics/summary", func(w http.ResponseWriter, r *http.Request) {
+		statistics.GetSummary(w, r, db)
 	})
 
 	r.HandleFunc("GET /applications/{id}", func(w http.ResponseWriter, r *http.Request) {

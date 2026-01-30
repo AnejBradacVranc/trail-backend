@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -38,6 +39,7 @@ type Request struct {
 	SalaryMin     *int    `json:"salary_min"`
 	SalaryMax     *int    `json:"salary_max"`
 	AppliedAt     string  `json:"applied_at"`
+	InterviewAt   *string `json:"interview_at"`
 	NoteContent   *string `json:"note_content"`
 }
 
@@ -66,6 +68,19 @@ func CreateApplication(w http.ResponseWriter, r *http.Request, s *services.AppSe
 		return
 	}
 
+	var interviewAt *time.Time
+
+	if req.InterviewAt != nil {
+		parsedInterviewAt, err := utils.ParseTimeString(*req.InterviewAt)
+
+		if err != nil {
+			api.RequestErrorHandler(w, errors.New("invalid interview_at format"))
+			return
+		}
+
+		interviewAt = &parsedInterviewAt
+	}
+
 	id, err := (*s).CreateApplication(
 		req.UserID,
 		req.StatusID,
@@ -78,6 +93,7 @@ func CreateApplication(w http.ResponseWriter, r *http.Request, s *services.AppSe
 		req.SalaryMin,
 		req.SalaryMax,
 		appliedAt,
+		interviewAt,
 		req.NoteContent)
 
 	if err != nil {

@@ -23,6 +23,7 @@ func (a TransactionService) CreateApplication(
 	salaryMin *int,
 	salaryMax *int,
 	appliedAt time.Time,
+	interviewAt *time.Time,
 	noteContent *string,
 ) (*int64, error) {
 
@@ -50,7 +51,7 @@ func (a TransactionService) CreateApplication(
 		return nil, err
 	}
 
-	appID, err := a.db.CreateApplication(a.ctx, tx, userId, statusId, companyID, jobTitle, platformId, jobUrl, salaryMin, salaryMax, appliedAt)
+	appID, err := a.db.CreateApplication(a.ctx, tx, userId, statusId, companyID, jobTitle, platformId, jobUrl, salaryMin, salaryMax, appliedAt, interviewAt)
 	if err != nil {
 		return nil, err
 	}
@@ -79,6 +80,7 @@ type AppServiceInterface interface {
 		salaryMin *int,
 		salaryMax *int,
 		appliedAt time.Time,
+		interviewAt *time.Time,
 		noteContent *string,
 	) (*int64, error)
 }
