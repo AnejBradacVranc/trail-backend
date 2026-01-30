@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type postgreSQL struct {
@@ -581,16 +582,28 @@ func (p *postgreSQL) GetApplicationByID(applicationId int64) (*ApplicationDetail
 }
 
 func (p *postgreSQL) LoginUser(email string, password string) (*User, error) {
-	//TODO implement me
-	panic("implement me")
+	//If password is correct, return user (could return just true or false)
+	err := bcrypt.CompareHashAndPassword([]byte(password), []byte(password))
+	if err == nil {
+		print("Passwords match")
+		return &User{
+			UserID: 1,
+			Email:  email,
+		}, nil
+	} else {
+		return nil, err
+	}
 }
 
 func (p *postgreSQL) CreateUser(name string, surname string, email string, password string) (int64, error) {
+
+	hashed, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+
 	query := `INSERT INTO users(NAME, SURNAME, EMAIL, PASSWORD) VALUES ($1, $2, $3, $4) RETURNING user_id`
 
 	var id int64
 
-	err := p.db.QueryRow(context.Background(), query, name, surname, email, password).Scan(&id)
+	err := p.db.QueryRow(context.Background(), query, name, surname, email, hashed).Scan(&id)
 
 	if err != nil {
 		return -1, err

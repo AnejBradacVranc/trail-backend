@@ -4,6 +4,7 @@ import (
 	"backend/api"
 	"backend/internal/applicationStatuses"
 	"backend/internal/applications"
+	"backend/internal/auth"
 	"backend/internal/platforms"
 	"backend/internal/services"
 	"backend/internal/statistics"
@@ -11,9 +12,36 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"os"
 
+	"github.com/golang-jwt/jwt/v5"
 	log "github.com/sirupsen/logrus"
 )
+
+func Auth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cookie, err := r.Cookie("access_token")
+		if err != nil {
+			api.RequestUnauthorisedHandler(w, "Unauthorized")
+			return
+		}
+
+		token, err := jwt.ParseWithClaims(
+			cookie.Value,
+			&jwt.RegisteredClaims{},
+			func(token *jwt.Token) (interface{}, error) {
+				return []byte(os.Getenv("JWT_SECRET")), nil
+			},
+		)
+
+		if err != nil || !token.Valid {
+			api.RequestUnauthorisedHandler(w, "Invalid token")
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
 
 func EnableCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -59,23 +87,27 @@ func Handler(r *http.ServeMux) {
 		platforms.GetPlatforms(w, r, db)
 	})
 
-	r.HandleFunc("GET /user/applications", func(w http.ResponseWriter, r *http.Request) {
+	r.HandleFunc("POST /login", func(w http.ResponseWriter, r *http.Request) {
+		auth.Login(w, r, db)
+	})
+
+	r.Handle("GET /user/applications", Auth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		applications.GetApplications(w, r, db)
-	})
+	})))
 
-	r.HandleFunc("GET /user/statistics/summary", func(w http.ResponseWriter, r *http.Request) {
+	r.Handle("GET /user/statistics/summary", Auth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		statistics.GetSummary(w, r, db)
-	})
+	})))
 
-	r.HandleFunc("GET /applications/{id}", func(w http.ResponseWriter, r *http.Request) {
+	r.Handle("GET /applications/{id}", Auth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		applications.GetApplication(w, r, db)
-	})
+	})))
 
 	r.HandleFunc("GET /applications/statuses", func(w http.ResponseWriter, r *http.Request) {
 		applicationStatuses.GetStatuses(w, r, db)
 	})
 
-	r.HandleFunc("POST /applications", func(w http.ResponseWriter, r *http.Request) {
+	r.Handle("POST /applications", Auth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		applications.CreateApplication(w, r, s)
-	})
+	})))
 }

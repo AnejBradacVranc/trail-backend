@@ -34,6 +34,10 @@ func writeMessageResponse(w http.ResponseWriter, message string, code int, succe
 }
 
 var (
+	RequestUnauthorisedHandler = func(w http.ResponseWriter, message string) {
+		writeMessageResponse(w, message, http.StatusUnauthorized, false)
+	}
+
 	RequestErrorHandler = func(w http.ResponseWriter, err error) {
 		writeMessageResponse(w, err.Error(), http.StatusBadRequest, false)
 	}
