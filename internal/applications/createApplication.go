@@ -2,11 +2,11 @@ package applications
 
 import (
 	"backend/api"
-	"backend/internal/tools"
+	"backend/internal/services"
+	"backend/internal/utils"
 	"encoding/json"
 	"errors"
 	"net/http"
-	"time"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -27,22 +27,21 @@ import (
 //	}
 
 type Request struct {
-	UserID      int64   `json:"user_id"`
-	StatusID    int64   `json:"status_id"`
-	CompanyName string  `json:"company_name"`
-	Location    *string `json:"location"`
-	JobTitle    string  `json:"job_title"`
-	Platform    string  `json:"platform"`
-	JobURL      *string `json:"job_url"`
-	SalaryMin   *int    `json:"salary_min"`
-	SalaryMax   *int    `json:"salary_max"`
-	AppliedAt   string  `json:"applied_at"`
+	UserID        int64   `json:"user_id"`
+	StatusID      int64   `json:"status_id"`
+	CompanyName   string  `json:"company_name"`
+	Location      string  `json:"location"`
+	JobTitle      string  `json:"job_title"`
+	PlatformID    int64   `json:"platform_id"`
+	JobURL        *string `json:"job_url"`
+	EmployeeCount *int    `json:"employee_count"`
+	SalaryMin     *int    `json:"salary_min"`
+	SalaryMax     *int    `json:"salary_max"`
+	AppliedAt     string  `json:"applied_at"`
+	NoteContent   *string `json:"note_content"`
 }
 
-func CreateApplication(w http.ResponseWriter, r *http.Request, db *tools.DbInterface) {
-
-	//TODO Create company
-	//TODO Insert notes
+func CreateApplication(w http.ResponseWriter, r *http.Request, s *services.AppServiceInterface) {
 
 	if r.Method != http.MethodPost {
 		api.RequestErrorHandler(w, errors.New("invalid method"))
@@ -56,36 +55,41 @@ func CreateApplication(w http.ResponseWriter, r *http.Request, db *tools.DbInter
 		return
 	}
 
-	if req.UserID == 0 || req.StatusID == 0 || req.CompanyName == "" || req.JobTitle == "" || req.Platform == "" || req.AppliedAt == "" {
+	if req.UserID == 0 || req.StatusID == 0 || req.CompanyName == "" || req.JobTitle == "" || req.AppliedAt == "" || req.Location == "" {
 		api.RequestErrorHandler(w, errors.New("missing required fields"))
 		return
 	}
 
-	appliedAt, err := time.Parse(
-		"2006-01-02 15:04:05.999999-07",
-		req.AppliedAt,
-	)
-
+	appliedAt, err := utils.ParseTimeString(req.AppliedAt)
 	if err != nil {
-		log.Error(err)
-		api.RequestErrorHandler(w, errors.New("applied_at must be RFC3339 timestamp"))
+		api.RequestErrorHandler(w, errors.New("invalid applied_at format"))
 		return
 	}
 
-	//TODO CREATE COMPANY AND INSERT ID HERE, THE SAME FOR NOTES, THEY ARE IN THE OTHER TABLE
-	id, err := (*db).CreateApplication(req.UserID, req.StatusID, 2, req.JobTitle, req.Platform, req.JobURL, req.SalaryMin, req.SalaryMax, appliedAt)
+	id, err := (*s).CreateApplication(
+		req.UserID,
+		req.StatusID,
+		req.CompanyName,
+		req.Location,
+		req.EmployeeCount,
+		req.JobTitle,
+		req.PlatformID,
+		req.JobURL,
+		req.SalaryMin,
+		req.SalaryMax,
+		appliedAt,
+		req.NoteContent)
+
 	if err != nil {
 		log.Error(err)
 		api.RequestErrorHandler(w, err)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-
 	if err := json.NewEncoder(w).Encode(api.Response[api.IDResp]{
-		Code: http.StatusOK,
-		Data: api.IDResp{ID: id},
+		Success: true,
+		Code:    http.StatusOK,
+		Data:    api.IDResp{ID: *id},
 	}); err != nil {
 		log.Error(err)
 	}

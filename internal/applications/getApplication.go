@@ -37,9 +37,12 @@ func GetApplication(w http.ResponseWriter, r *http.Request, db *tools.DbInterfac
 		return
 	}
 
-	err = json.NewEncoder(w).Encode(api.Response[tools.ApplicationDetail]{
-		Code: http.StatusOK,
-		Data: *application,
-	})
+	if err := json.NewEncoder(w).Encode(api.Response[tools.ApplicationDetail]{
+		Success: true,
+		Code:    http.StatusOK,
+		Data:    *application,
+	}); err != nil {
+		log.Error(err)
+	}
 
 }

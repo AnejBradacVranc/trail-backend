@@ -2,8 +2,12 @@ package handlers
 
 import (
 	"backend/api"
+	"backend/internal/applicationStatuses"
 	"backend/internal/applications"
+	"backend/internal/platforms"
+	"backend/internal/services"
 	"backend/internal/tools"
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -30,10 +34,14 @@ func Handler(r *http.ServeMux) {
 
 	db, err := tools.NewDatabase()
 
+	ctx := context.Background()
+
 	if err != nil {
 		log.Error(err)
 		return
 	}
+
+	s := services.NewTransactionService(ctx, *db)
 
 	r.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 
@@ -46,6 +54,10 @@ func Handler(r *http.ServeMux) {
 		}
 	})
 
+	r.HandleFunc("GET /platforms", func(w http.ResponseWriter, r *http.Request) {
+		platforms.GetPlatforms(w, r, db)
+	})
+
 	r.HandleFunc("GET /user/applications", func(w http.ResponseWriter, r *http.Request) {
 		applications.GetApplications(w, r, db)
 	})
@@ -54,7 +66,11 @@ func Handler(r *http.ServeMux) {
 		applications.GetApplication(w, r, db)
 	})
 
+	r.HandleFunc("GET /applications/statuses", func(w http.ResponseWriter, r *http.Request) {
+		applicationStatuses.GetStatuses(w, r, db)
+	})
+
 	r.HandleFunc("POST /applications", func(w http.ResponseWriter, r *http.Request) {
-		applications.CreateApplication(w, r, db)
+		applications.CreateApplication(w, r, s)
 	})
 }

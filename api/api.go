@@ -6,8 +6,9 @@ import (
 )
 
 type Response[T any] struct {
-	Code int `json:"code"`
-	Data T   `json:"data"`
+	Success bool `json:"success"`
+	Code    int  `json:"code"`
+	Data    T    `json:"data"`
 }
 
 type IDResp struct {
@@ -18,10 +19,11 @@ type Message struct {
 	Message string `json:"message"`
 }
 
-func writeMessageResponse(w http.ResponseWriter, message string, code int) {
+func writeMessageResponse(w http.ResponseWriter, message string, code int, success bool) {
 	resp := Response[Message]{
-		Code: code,
-		Data: Message{Message: message},
+		Success: success,
+		Code:    code,
+		Data:    Message{Message: message},
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(code)
@@ -33,12 +35,12 @@ func writeMessageResponse(w http.ResponseWriter, message string, code int) {
 
 var (
 	RequestErrorHandler = func(w http.ResponseWriter, err error) {
-		writeMessageResponse(w, err.Error(), http.StatusBadRequest)
+		writeMessageResponse(w, err.Error(), http.StatusBadRequest, false)
 	}
 	InternalErrorHandler = func(w http.ResponseWriter) {
-		writeMessageResponse(w, "Internal error", http.StatusInternalServerError)
+		writeMessageResponse(w, "Internal error", http.StatusInternalServerError, false)
 	}
 	RequestSuccessHandler = func(w http.ResponseWriter, message string) {
-		writeMessageResponse(w, message, http.StatusOK)
+		writeMessageResponse(w, message, http.StatusOK, true)
 	}
 )
