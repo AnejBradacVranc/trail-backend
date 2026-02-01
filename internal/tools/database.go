@@ -9,14 +9,17 @@ import (
 )
 
 type ApplicationSummary struct {
-	ApplicationID int64     `json:"application_id"`
-	JobTitle      string    `json:"job_title"`
-	AppliedAt     time.Time `json:"applied_at"`
-	StatusName    string    `json:"status_name"`
-	SalaryMax     int       `json:"salary_max"`
-	SalaryMin     int       `json:"salary_min"`
-	Location      string    `json:"location"`
-	CompanyName   string    `json:"company_name"`
+	ApplicationID int64      `json:"application_id"`
+	JobTitle      string     `json:"job_title"`
+	AppliedAt     time.Time  `json:"applied_at"`
+	InterviewAt   *time.Time `json:"interview_at"`
+	StatusId      int64      `json:"status_id"`
+	SalaryMax     int        `json:"salary_max"`
+	SalaryMin     int        `json:"salary_min"`
+	Location      string     `json:"location"`
+	CompanyName   string     `json:"company_name"`
+	StatusColor   string     `json:"status_color"`
+	StatusName    string     `json:"status_name"`
 }
 
 type StatisticsSummary struct {

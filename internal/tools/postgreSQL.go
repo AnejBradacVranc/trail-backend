@@ -52,7 +52,6 @@ func (p *postgreSQL) GetStatisticsSummary(userId int64) ([]*StatisticsSummary, e
 
 	var period = "month"
 
-	print(userId)
 	//Skupni imenovalec mogoce da gre dolocit za kateri time span in za kateri status gledamo
 	//Total applications, active interviews, Response rate, Next coming up interview
 	applicationsStatsQuery := `
@@ -152,14 +151,14 @@ func (p *postgreSQL) GetStatisticsSummary(userId int64) ([]*StatisticsSummary, e
             2
         )
     END AS value,	
-	CASE
-        WHEN previous_month_count = 0 THEN NULL
-        ELSE ROUND(
-            ((previous_month_processed_count)::numeric
-             / previous_month_count) * 100,
-            2
-        )
-    END AS delta,
+	--CASE
+        --WHEN previous_month_count = 0 THEN NULL
+        --ELSE ROUND(
+            --((previous_month_processed_count)::numeric
+             --/ previous_month_count) * 100,
+            --2
+        --)
+    --END AS delta,
 	
     CASE
 		WHEN previous_month_processed_count = 0 AND this_month_processed_count > 0 THEN 'new'
@@ -175,10 +174,10 @@ FROM (
 		COUNT (*) FILTER (  
 			WHERE a.created_at >= date_trunc('month', CURRENT_DATE) AND a.status_id != 1 
 		) as this_month_processed_count,	
-        COUNT(*) FILTER (
-            WHERE a.created_at >= date_trunc('month', CURRENT_DATE) - INTERVAL '1 month'
-          AND a.created_at <  date_trunc('month', CURRENT_DATE)
-        ) AS previous_month_count,
+        --COUNT(*) FILTER (
+            --WHERE a.created_at >= date_trunc('month', CURRENT_DATE) - INTERVAL '1 month'
+          --AND a.created_at <  date_trunc('month', CURRENT_DATE)
+        --) AS previous_month_count,
 			COUNT (*) FILTER (  
 			WHERE a.created_at >= date_trunc('month', CURRENT_DATE) - INTERVAL '1 month'
           AND a.created_at <  date_trunc('month', CURRENT_DATE) AND a.status_id != 1 
@@ -196,10 +195,10 @@ FROM (
 	processedStat.Period = &period
 	processedStat.Unit = &percentUnit
 
-	_ = row.Scan(&thisMonthApplicationsCount, &processedStat.Value, &processedStat.Delta, &processedStat.Trend)
+	_ = row.Scan(&thisMonthApplicationsCount, &processedStat.Value, &processedStat.Trend)
 
 	processedStat.Name = "Processed applications"
-	processedStatText := fmt.Sprintf("Percentage of processed applications out of %s applied this month.", thisMonthApplicationsCount)
+	processedStatText := fmt.Sprintf("Processed applications out of %s applied this month.", thisMonthApplicationsCount)
 	processedStat.SummaryText = &processedStatText
 
 	//Time to next interview
@@ -378,9 +377,12 @@ func (p *postgreSQL) GetApplicationsFromUserByID(userId int64, statusIds ...int6
 		a.applied_at,
 		a.salary_max,
 		a.salary_min,
+		a.status_id,		
+		a.interview_at,
 		c.name AS company_name,
 		c.location,
-		s.status_name
+		s.status_name,
+		s.color
 	FROM applications a
 	JOIN users u ON u.user_id = a.user_id
 	JOIN application_statuses s ON s.status_id = a.status_id
@@ -417,9 +419,13 @@ func (p *postgreSQL) GetApplicationsFromUserByID(userId int64, statusIds ...int6
 			&application.AppliedAt,
 			&application.SalaryMax,
 			&application.SalaryMin,
+			&application.StatusId,
+			&application.InterviewAt,
 			&application.CompanyName,
 			&application.Location,
-			&application.StatusName)
+			&application.StatusName,
+			&application.StatusColor,
+		)
 
 		if err != nil {
 			return nil, err
@@ -632,6 +638,7 @@ func (p *postgreSQL) LoginUser(email string, password string) (*User, error) {
 }
 
 func (p *postgreSQL) CreateUser(name string, surname string, email string, password string) (int64, error) {
+	//TODO chekc if user already exists by email
 
 	hashed, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 
