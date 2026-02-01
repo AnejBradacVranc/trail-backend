@@ -131,7 +131,7 @@ type DbInterface interface {
 	CreateNote(ctx context.Context, tx *pgx.Tx, applicationId int64, noteContent string) (int64, error)
 	CreateFile(ctx context.Context, tx *pgx.Tx, applicationId int64, filename string) (int64, error)
 	GetApplicationByID(applicationId int64) (*ApplicationDetail, error)
-	GetApplicationsFromUserByID(userId int64) ([]*ApplicationSummary, error)
+	GetApplicationsFromUserByID(userId int64, statusIds ...int64) ([]*ApplicationSummary, error)
 	GetStatuses() ([]*ApplicationStatus, error)
 	GetPlatforms() ([]*Platform, error)
 	GetUserByEmail(email string) (*User, error)

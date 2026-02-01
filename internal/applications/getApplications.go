@@ -14,6 +14,18 @@ func GetApplications(w http.ResponseWriter, r *http.Request, db *tools.DbInterfa
 
 	userID, ok := r.Context().Value("user_id").(string)
 
+	statusIDsStr := r.URL.Query()["status_id"] // returns []string
+	var statusIDs []int64
+
+	for _, idStr := range statusIDsStr {
+		id, err := strconv.ParseInt(idStr, 10, 64)
+		if err != nil {
+			api.RequestErrorHandler(w, err)
+			continue
+		}
+		statusIDs = append(statusIDs, id)
+	}
+
 	if !ok {
 		api.RequestUnauthorisedHandler(w, "Unauthorized")
 		return
@@ -26,7 +38,7 @@ func GetApplications(w http.ResponseWriter, r *http.Request, db *tools.DbInterfa
 		api.RequestErrorHandler(w, err)
 	}
 
-	applications, err := (*db).GetApplicationsFromUserByID(userIDNum)
+	applications, err := (*db).GetApplicationsFromUserByID(userIDNum, statusIDs...)
 
 	if err != nil {
 		log.Error(err)

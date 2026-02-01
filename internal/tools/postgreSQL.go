@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -369,7 +370,7 @@ func (p *postgreSQL) CreateCompany(ctx context.Context, tx *pgx.Tx, name string,
 	return id, nil
 }
 
-func (p *postgreSQL) GetApplicationsFromUserByID(userId int64) ([]*ApplicationSummary, error) {
+func (p *postgreSQL) GetApplicationsFromUserByID(userId int64, statusIds ...int64) ([]*ApplicationSummary, error) {
 
 	query := `SELECT 	
 		a.application_id,
@@ -385,6 +386,17 @@ func (p *postgreSQL) GetApplicationsFromUserByID(userId int64) ([]*ApplicationSu
 	JOIN application_statuses s ON s.status_id = a.status_id
 	JOIN companies c ON c.company_id = a.company_id
 	WHERE u.user_id = $1`
+
+	if len(statusIds) > 0 {
+		var ids []string
+
+		for _, statusId := range statusIds {
+			ids = append(ids, fmt.Sprintf("%d", statusId))
+		}
+
+		query += fmt.Sprintf(" AND a.status_id IN (%s)", strings.Join(ids, ", "))
+
+	}
 
 	rows, err := p.db.Query(context.Background(), query, userId)
 
