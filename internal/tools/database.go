@@ -21,7 +21,7 @@ type ApplicationSummary struct {
 
 type StatisticsSummary struct {
 	Name        string   `json:"name"`
-	Value       int      `json:"value"`
+	Value       *int     `json:"value"`
 	Unit        *string  `json:"unit"`
 	Delta       *float64 `json:"delta"`
 	Period      *string  `json:"period"`
@@ -109,9 +109,18 @@ type User struct {
 	UserID     int64     `json:"user_id"`
 	Name       string    `json:"name"`
 	Surname    string    `json:"surname"`
+	Password   string    `json:"password"`
 	Email      string    `json:"email"`
 	CreatedAt  time.Time `json:"created_at"`
 	ModifiedAt time.Time `json:"modified_at"`
+}
+
+type UserPublic struct {
+	UserID    int64     `json:"user_id"`
+	Name      string    `json:"name"`
+	Surname   string    `json:"surname"`
+	Email     string    `json:"email"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type DbInterface interface {
@@ -122,10 +131,12 @@ type DbInterface interface {
 	CreateNote(ctx context.Context, tx *pgx.Tx, applicationId int64, noteContent string) (int64, error)
 	CreateFile(ctx context.Context, tx *pgx.Tx, applicationId int64, filename string) (int64, error)
 	GetApplicationByID(applicationId int64) (*ApplicationDetail, error)
-	GetApplicationsFromUserByEmail(email string) ([]*ApplicationSummary, error)
+	GetApplicationsFromUserByID(userId int64) ([]*ApplicationSummary, error)
 	GetStatuses() ([]*ApplicationStatus, error)
 	GetPlatforms() ([]*Platform, error)
-	GetStatisticsSummary(email string) ([]*StatisticsSummary, error)
+	GetUserByEmail(email string) (*User, error)
+	GetUserByID(userId int64) (*User, error)
+	GetStatisticsSummary(userId int64) ([]*StatisticsSummary, error)
 	LoginUser(email string, password string) (*User, error)
 	CreateUser(name string, surname string, email string, password string) (int64, error)
 	BeginTx(ctx context.Context) (*pgx.Tx, error)

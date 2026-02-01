@@ -17,10 +17,41 @@ type postgreSQL struct {
 	db *pgxpool.Pool
 }
 
-func (p *postgreSQL) GetStatisticsSummary(email string) ([]*StatisticsSummary, error) {
+func (p *postgreSQL) GetUserByID(userId int64) (*User, error) {
+	query := `SELECT user_id,name, surname, email, password FROM users WHERE user_id = $1`
+	row := p.db.QueryRow(context.Background(), query, userId)
+	user := &User{}
+
+	err := row.Scan(&user.UserID, &user.Name, &user.Surname, &user.Email, &user.Password)
+
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+
+	return user, nil
+}
+
+func (p *postgreSQL) GetUserByEmail(email string) (*User, error) {
+	query := `SELECT user_id,name, surname, email, password FROM users WHERE email = $1`
+	row := p.db.QueryRow(context.Background(), query, email)
+	user := &User{}
+
+	err := row.Scan(&user.UserID, &user.Name, &user.Surname, &user.Email, &user.Password)
+
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+
+	return user, nil
+}
+
+func (p *postgreSQL) GetStatisticsSummary(userId int64) ([]*StatisticsSummary, error) {
 
 	var period = "month"
 
+	print(userId)
 	//Skupni imenovalec mogoce da gre dolocit za kateri time span in za kateri status gledamo
 	//Total applications, active interviews, Response rate, Next coming up interview
 	applicationsStatsQuery := `
@@ -52,10 +83,10 @@ func (p *postgreSQL) GetStatisticsSummary(email string) ([]*StatisticsSummary, e
 			) AS previous_month_count
 		FROM applications a
 		JOIN users u ON u.user_id = a.user_id
-		WHERE u.email = $1
+		WHERE u.user_id = $1
 	) as s`
 
-	row := p.db.QueryRow(context.Background(), applicationsStatsQuery, email)
+	row := p.db.QueryRow(context.Background(), applicationsStatsQuery, userId)
 
 	applicationsStat := &StatisticsSummary{}
 	applicationsStat.Period = &period
@@ -63,11 +94,7 @@ func (p *postgreSQL) GetStatisticsSummary(email string) ([]*StatisticsSummary, e
 	appStatText := "Total applications you applied for this month."
 	applicationsStat.SummaryText = &appStatText
 
-	err := row.Scan(&applicationsStat.Value, &applicationsStat.Delta, &applicationsStat.Trend)
-
-	if err != nil {
-		return nil, err
-	}
+	_ = row.Scan(&applicationsStat.Value, &applicationsStat.Delta, &applicationsStat.Trend)
 
 	//Applications that are over the applied state
 	interviewsStatsQuery := `
@@ -99,10 +126,11 @@ func (p *postgreSQL) GetStatisticsSummary(email string) ([]*StatisticsSummary, e
 			) AS previous_month_count
 		FROM applications a
 		JOIN users u ON u.user_id = a.user_id
-		WHERE u.email = $1 AND a.status_id IN (2, 3, 4)
+		WHERE a.status_id IN (2, 3, 4)
+		AND u.user_id = $1
 	) as s`
 
-	row = p.db.QueryRow(context.Background(), interviewsStatsQuery, email)
+	row = p.db.QueryRow(context.Background(), interviewsStatsQuery, userId)
 
 	interviewsStat := &StatisticsSummary{}
 	interviewsStat.Period = &period
@@ -110,11 +138,7 @@ func (p *postgreSQL) GetStatisticsSummary(email string) ([]*StatisticsSummary, e
 	interviewsStatText := "Number of currently open job applications."
 	interviewsStat.SummaryText = &interviewsStatText
 
-	err = row.Scan(&interviewsStat.Value, &interviewsStat.Delta, &interviewsStat.Trend)
-
-	if err != nil {
-		return nil, err
-	}
+	_ = row.Scan(&interviewsStat.Value, &interviewsStat.Delta, &interviewsStat.Trend)
 
 	//Share of applications that are over the applied state in relation to total applications
 
@@ -160,10 +184,10 @@ FROM (
 		) as previous_month_processed_count
     FROM applications a
 	JOIN users u ON u.user_id = a.user_id
-	WHERE u.email = $1
+	WHERE u.user_id = $1
 	) as p`
 
-	row = p.db.QueryRow(context.Background(), processedApplicationsQuery, email)
+	row = p.db.QueryRow(context.Background(), processedApplicationsQuery, userId)
 
 	var percentUnit = "%"
 	var thisMonthApplicationsCount string
@@ -171,11 +195,7 @@ FROM (
 	processedStat.Period = &period
 	processedStat.Unit = &percentUnit
 
-	err = row.Scan(&thisMonthApplicationsCount, &processedStat.Value, &processedStat.Delta, &processedStat.Trend)
-
-	if err != nil {
-		return nil, err
-	}
+	_ = row.Scan(&thisMonthApplicationsCount, &processedStat.Value, &processedStat.Delta, &processedStat.Trend)
 
 	processedStat.Name = "Processed applications"
 	processedStatText := fmt.Sprintf("Percentage of processed applications out of %s applied this month.", thisMonthApplicationsCount)
@@ -189,7 +209,8 @@ FROM (
 		FROM applications a
 		JOIN users u ON u.user_id = a.user_id
 		WHERE a.status_id = 3
-		  AND a.interview_at >= CURRENT_DATE AND u.email = $1
+		  AND a.interview_at >= CURRENT_DATE 
+		  AND u.user_id = $1
 		ORDER BY a.interview_at
 		LIMIT 1;`
 
@@ -197,24 +218,21 @@ FROM (
 	nextInterviewStat := &StatisticsSummary{}
 	nextInterviewStat.Unit = &nextInterviewStatUnit
 	nextInterviewStat.Name = "Time to next interview"
-	nextInterviewDefaultText := "No interviews scheduled yet."
+	nextInterviewText := "No interviews scheduled yet."
 
 	var nextInterviewDate *time.Time
 
-	row = p.db.QueryRow(context.Background(), nextInterviewQuery, email)
+	row = p.db.QueryRow(context.Background(), nextInterviewQuery, userId)
 
-	err = row.Scan(&nextInterviewDate, &nextInterviewStat.Value)
+	_ = row.Scan(&nextInterviewDate, &nextInterviewStat.Value)
 
-	if nextInterviewDate == nil || nextInterviewStat.Value == 0 {
-		nextInterviewStat.SummaryText = &nextInterviewDefaultText
+	if nextInterviewDate == nil || nextInterviewStat.Value == nil {
+		nextInterviewStat.SummaryText = &nextInterviewText
 	} else {
-		text := fmt.Sprintf("Interview scheduled for %s.", nextInterviewDate.Format("02.01.2006"))
-		nextInterviewStat.SummaryText = &text
+		nextInterviewText = fmt.Sprintf("Interview scheduled for %s.", nextInterviewDate.Format("02.01.2006"))
 	}
 
-	if err != nil {
-		return nil, err
-	}
+	nextInterviewStat.SummaryText = &nextInterviewText
 
 	var stats []*StatisticsSummary
 
@@ -351,7 +369,8 @@ func (p *postgreSQL) CreateCompany(ctx context.Context, tx *pgx.Tx, name string,
 	return id, nil
 }
 
-func (p *postgreSQL) GetApplicationsFromUserByEmail(email string) ([]*ApplicationSummary, error) {
+func (p *postgreSQL) GetApplicationsFromUserByID(userId int64) ([]*ApplicationSummary, error) {
+
 	query := `SELECT 	
 		a.application_id,
 		a.job_title,    
@@ -365,9 +384,9 @@ func (p *postgreSQL) GetApplicationsFromUserByEmail(email string) ([]*Applicatio
 	JOIN users u ON u.user_id = a.user_id
 	JOIN application_statuses s ON s.status_id = a.status_id
 	JOIN companies c ON c.company_id = a.company_id
-	WHERE u.email = $1`
+	WHERE u.user_id = $1`
 
-	rows, err := p.db.Query(context.Background(), query, email)
+	rows, err := p.db.Query(context.Background(), query, userId)
 
 	if err != nil {
 		return nil, err
@@ -582,12 +601,17 @@ func (p *postgreSQL) GetApplicationByID(applicationId int64) (*ApplicationDetail
 }
 
 func (p *postgreSQL) LoginUser(email string, password string) (*User, error) {
-	//If password is correct, return user (could return just true or false)
-	err := bcrypt.CompareHashAndPassword([]byte(password), []byte(password))
+
+	user, err := p.GetUserByEmail(email)
+	if err != nil {
+		return nil, err
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
+
 	if err == nil {
-		print("Passwords match")
 		return &User{
-			UserID: 1,
+			UserID: user.UserID,
 			Email:  email,
 		}, nil
 	} else {

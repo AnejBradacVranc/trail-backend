@@ -4,23 +4,29 @@ import (
 	"backend/api"
 	"backend/internal/tools"
 	"encoding/json"
-	"errors"
 	"net/http"
+	"strconv"
 
 	log "github.com/sirupsen/logrus"
 )
 
 func GetApplications(w http.ResponseWriter, r *http.Request, db *tools.DbInterface) {
 
-	userEmail := r.URL.Query().Get("user_email")
+	userID, ok := r.Context().Value("user_id").(string)
 
-	if userEmail == "" {
-		log.Error("User email is empty")
-		api.RequestErrorHandler(w, errors.New("user email cannot be empty"))
+	if !ok {
+		api.RequestUnauthorisedHandler(w, "Unauthorized")
 		return
 	}
 
-	applications, err := (*db).GetApplicationsFromUserByEmail(userEmail)
+	userIDNum, err := strconv.ParseInt(userID, 10, 64)
+
+	if err != nil {
+		log.Error(err)
+		api.RequestErrorHandler(w, err)
+	}
+
+	applications, err := (*db).GetApplicationsFromUserByID(userIDNum)
 
 	if err != nil {
 		log.Error(err)

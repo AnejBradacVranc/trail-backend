@@ -11,19 +11,14 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type Request struct {
+type LoginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
 func Login(w http.ResponseWriter, r *http.Request, db *tools.DbInterface) {
 
-	if r.Method != http.MethodPost {
-		api.RequestErrorHandler(w, errors.New("invalid method"))
-		return
-	}
-
-	var req Request
+	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		log.Error(err)
 		api.RequestErrorHandler(w, errors.New("invalid json body"))
@@ -64,5 +59,4 @@ func Login(w http.ResponseWriter, r *http.Request, db *tools.DbInterface) {
 	}); err != nil {
 		log.Error(err)
 	}
-
 }

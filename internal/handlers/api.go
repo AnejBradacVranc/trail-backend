@@ -39,13 +39,16 @@ func Auth(next http.Handler) http.Handler {
 			return
 		}
 
-		next.ServeHTTP(w, r)
+		claims := token.Claims.(*jwt.RegisteredClaims)
+		ctx := context.WithValue(r.Context(), "user_id", claims.Subject)
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
 func EnableCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		w.Header().Set("Access-Control-Max-Age", "3600")
@@ -87,9 +90,20 @@ func Handler(r *http.ServeMux) {
 		platforms.GetPlatforms(w, r, db)
 	})
 
-	r.HandleFunc("POST /login", func(w http.ResponseWriter, r *http.Request) {
+	r.HandleFunc("POST /user/login", func(w http.ResponseWriter, r *http.Request) {
 		auth.Login(w, r, db)
 	})
+
+	r.HandleFunc("POST /user/register", func(w http.ResponseWriter, r *http.Request) {
+		auth.Register(w, r, db)
+	})
+
+	r.HandleFunc("POST /user/logout", func(w http.ResponseWriter, r *http.Request) {
+		auth.Logout(w, r)
+	})
+	r.Handle("GET /user/check", Auth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		auth.Check(w, r, db)
+	})))
 
 	r.Handle("GET /user/applications", Auth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		applications.GetApplications(w, r, db)
@@ -110,4 +124,5 @@ func Handler(r *http.ServeMux) {
 	r.Handle("POST /applications", Auth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		applications.CreateApplication(w, r, s)
 	})))
+
 }

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -28,7 +29,6 @@ import (
 //	}
 
 type Request struct {
-	UserID        int64   `json:"user_id"`
 	StatusID      int64   `json:"status_id"`
 	CompanyName   string  `json:"company_name"`
 	Location      string  `json:"location"`
@@ -57,7 +57,7 @@ func CreateApplication(w http.ResponseWriter, r *http.Request, s *services.AppSe
 		return
 	}
 
-	if req.UserID == 0 || req.StatusID == 0 || req.CompanyName == "" || req.JobTitle == "" || req.AppliedAt == "" || req.Location == "" {
+	if req.StatusID == 0 || req.CompanyName == "" || req.JobTitle == "" || req.AppliedAt == "" || req.Location == "" {
 		api.RequestErrorHandler(w, errors.New("missing required fields"))
 		return
 	}
@@ -81,8 +81,22 @@ func CreateApplication(w http.ResponseWriter, r *http.Request, s *services.AppSe
 		interviewAt = &parsedInterviewAt
 	}
 
+	userID, ok := r.Context().Value("user_id").(string)
+
+	if !ok {
+		api.RequestUnauthorisedHandler(w, "Unauthorized")
+		return
+	}
+
+	userIDNum, err := strconv.ParseInt(userID, 10, 64)
+
+	if err != nil {
+		log.Error(err)
+		api.RequestErrorHandler(w, err)
+	}
+
 	id, err := (*s).CreateApplication(
-		req.UserID,
+		userIDNum,
 		req.StatusID,
 		req.CompanyName,
 		req.Location,
