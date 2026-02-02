@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -460,7 +461,7 @@ func (p *postgreSQL) CreateApplication(ctx context.Context, tx *pgx.Tx, userId i
 }
 
 func (p *postgreSQL) GetApplicationByID(applicationId int64) (*ApplicationDetail, error) {
-	query := `
+	baseQuery := `
 		SELECT
 			a.application_id,
 			a.job_title,
@@ -469,11 +470,14 @@ func (p *postgreSQL) GetApplicationByID(applicationId int64) (*ApplicationDetail
 			a.salary_max,
 			a.created_at,
 			a.modified_at,
+			a.applied_at,
 			s.status_name,
+			s.color,
 			c.company_id,
 			c.name,
 			c.location,
 			c.employee_count,
+			c.website,
 			p.platform_id,
 			p.name,
 			p.website,
@@ -485,7 +489,7 @@ func (p *postgreSQL) GetApplicationByID(applicationId int64) (*ApplicationDetail
 		WHERE a.application_id = $1
 	`
 
-	row := p.db.QueryRow(context.Background(), query, applicationId)
+	row := p.db.QueryRow(context.Background(), baseQuery, applicationId)
 
 	detail := &ApplicationDetail{}
 
@@ -497,18 +501,21 @@ func (p *postgreSQL) GetApplicationByID(applicationId int64) (*ApplicationDetail
 		&detail.SalaryMax,
 		&detail.CreatedAt,
 		&detail.ModifiedAt,
+		&detail.AppliedAt,
 		&detail.StatusName,
+		&detail.StatusColor,
 		&detail.Company.CompanyID,
 		&detail.Company.Name,
 		&detail.Company.HeadquartersLocation,
 		&detail.Company.EmployeesCount,
+		&detail.Company.Website,
 		&detail.Platform.PlatformID,
 		&detail.Platform.Name,
 		&detail.Platform.Website,
 		&detail.Platform.IsActive,
 	)
 
-	if err != nil {
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return nil, err
 	}
 
@@ -543,7 +550,7 @@ func (p *postgreSQL) GetApplicationByID(applicationId int64) (*ApplicationDetail
 			&event.EventEstEndTime,
 			&event.CreatedAt,
 		)
-		if err != nil {
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return nil, err
 		}
 		detail.Events = append(detail.Events, event)
@@ -562,9 +569,11 @@ func (p *postgreSQL) GetApplicationByID(applicationId int64) (*ApplicationDetail
 	`
 
 	rows, err = p.db.Query(context.Background(), notesQuery, applicationId)
+
 	if err != nil {
 		return nil, err
 	}
+
 	defer rows.Close()
 
 	for rows.Next() {
@@ -576,7 +585,7 @@ func (p *postgreSQL) GetApplicationByID(applicationId int64) (*ApplicationDetail
 			&note.CreatedAt,
 			&note.ModifiedAt,
 		)
-		if err != nil {
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return nil, err
 		}
 		detail.Notes = append(detail.Notes, note)
@@ -595,9 +604,11 @@ func (p *postgreSQL) GetApplicationByID(applicationId int64) (*ApplicationDetail
 	`
 
 	rows, err = p.db.Query(context.Background(), filesQuery, applicationId)
+
 	if err != nil {
 		return nil, err
 	}
+
 	defer rows.Close()
 
 	for rows.Next() {
@@ -609,10 +620,27 @@ func (p *postgreSQL) GetApplicationByID(applicationId int64) (*ApplicationDetail
 			&file.CreatedAt,
 			&file.ModifiedAt,
 		)
-		if err != nil {
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return nil, err
 		}
 		detail.Files = append(detail.Files, file)
+	}
+
+	companyContactQuery := `SELECT company_contact_id, name, surname, email, phone, role  FROM company_contact WHERE company_id = $1`
+
+	row = p.db.QueryRow(context.Background(), companyContactQuery, applicationId)
+
+	companyContact := &CompanyContact{}
+
+	err = row.Scan(&companyContact.CompanyContactID, &companyContact.Name, &companyContact.Surname, &companyContact.Email, &companyContact.Phone, &companyContact.Role)
+
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return nil, err
+	} else if errors.Is(err, pgx.ErrNoRows) {
+		detail.CompanyContact = nil
+	} else {
+		detail.CompanyContact = companyContact
+
 	}
 
 	return detail, nil

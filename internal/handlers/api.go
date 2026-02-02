@@ -105,7 +105,7 @@ func Handler(r *http.ServeMux) {
 		auth.Check(w, r, db)
 	})))
 
-	r.Handle("GET /user/applications", Auth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	r.Handle("GET /applications", Auth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		applications.GetApplications(w, r, db)
 	})))
 

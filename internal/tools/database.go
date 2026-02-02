@@ -38,22 +38,33 @@ type ApplicationStatus struct {
 }
 
 type ApplicationDetail struct {
-	ApplicationID int64     `json:"application_id"`
-	JobTitle      string    `json:"job_title"`
-	Platform      Platform  `json:"platform"`
-	JobURL        *string   `json:"job_url"`
-	SalaryMin     *int      `json:"salary_min"`
-	SalaryMax     *int      `json:"salary_max"`
-	CreatedAt     time.Time `json:"created_at"`
-	ModifiedAt    time.Time `json:"modified_at"`
+	ApplicationID  int64               `json:"application_id"`
+	JobTitle       string              `json:"job_title"`
+	Platform       Platform            `json:"platform"`
+	JobURL         *string             `json:"job_url"`
+	SalaryMin      *int                `json:"salary_min"`
+	SalaryMax      *int                `json:"salary_max"`
+	CreatedAt      time.Time           `json:"created_at"`
+	AppliedAt      time.Time           `json:"applied_at"`
+	ModifiedAt     time.Time           `json:"modified_at"`
+	StatusName     string              `json:"status_name"`
+	StatusColor    string              `json:"status_color"`
+	Company        CompanyDetail       `json:"company"`
+	CompanyContact *CompanyContact     `json:"company_contact"`
+	Events         []*ApplicationEvent `json:"events"`
+	Notes          []*Note             `json:"notes"`
+	Files          []*File             `json:"files"`
+}
 
-	StatusName string `json:"status_name"`
-
-	Company CompanyDetail `json:"company"`
-
-	Events []*ApplicationEvent `json:"events"`
-	Notes  []*Note             `json:"notes"`
-	Files  []*File             `json:"files"`
+type CompanyContact struct {
+	CompanyContactID int64     `json:"company_contact_id"`
+	Name             string    `json:"name"`
+	Surname          string    `json:"surname"`
+	Email            *string   `json:"email"`
+	Phone            *string   `json:"phone"`
+	Role             *string   `json:"role"`
+	CreatedAt        time.Time `json:"created_at"`
+	ModifiedAt       time.Time `json:"modified_at"`
 }
 
 type Platform struct {
@@ -78,6 +89,7 @@ type CompanyDetail struct {
 	Name                 string  `json:"name"`
 	HeadquartersLocation *string `json:"headquarters_location"`
 	EmployeesCount       *int    `json:"employees_count"`
+	Website              *string `json:"website"`
 }
 
 /*type CompanyContact struct {
