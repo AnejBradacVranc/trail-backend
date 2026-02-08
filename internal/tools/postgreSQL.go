@@ -471,6 +471,7 @@ func (p *postgreSQL) GetApplicationByID(applicationId int64) (*ApplicationDetail
 			a.created_at,
 			a.modified_at,
 			a.applied_at,
+			a.interview_at,
 			s.status_name,
 			s.color,
 			c.company_id,
@@ -481,7 +482,7 @@ func (p *postgreSQL) GetApplicationByID(applicationId int64) (*ApplicationDetail
 			p.platform_id,
 			p.name,
 			p.website,
-			p.is_active
+			p.is_active			
 		FROM applications a
 		JOIN application_statuses s ON s.status_id = a.status_id
 		JOIN companies c ON c.company_id = a.company_id
@@ -502,6 +503,7 @@ func (p *postgreSQL) GetApplicationByID(applicationId int64) (*ApplicationDetail
 		&detail.CreatedAt,
 		&detail.ModifiedAt,
 		&detail.AppliedAt,
+		&detail.InterviewAt,
 		&detail.StatusName,
 		&detail.StatusColor,
 		&detail.Company.CompanyID,
@@ -640,7 +642,33 @@ func (p *postgreSQL) GetApplicationByID(applicationId int64) (*ApplicationDetail
 		detail.CompanyContact = nil
 	} else {
 		detail.CompanyContact = companyContact
+	}
 
+	remindersQuery := `SELECT reminder_id, application_id, title, description, remind_at, is_completed  FROM reminders WHERE application_id = $1`
+
+	rows, err = p.db.Query(context.Background(), remindersQuery, applicationId)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		reminder := &Reminder{}
+		err := rows.Scan(
+			&reminder.ReminderID,
+			&reminder.ApplicationID,
+			&reminder.Title,
+			&reminder.Description,
+			&reminder.RemindAt,
+			&reminder.IsCompleted,
+		)
+
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return nil, err
+		}
+		detail.Reminders = append(detail.Reminders, reminder)
 	}
 
 	return detail, nil
@@ -666,8 +694,6 @@ func (p *postgreSQL) LoginUser(email string, password string) (*User, error) {
 }
 
 func (p *postgreSQL) CreateUser(name string, surname string, email string, password string) (int64, error) {
-	//TODO chekc if user already exists by email
-
 	hashed, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 
 	query := `INSERT INTO users(NAME, SURNAME, EMAIL, PASSWORD) VALUES ($1, $2, $3, $4) RETURNING user_id`

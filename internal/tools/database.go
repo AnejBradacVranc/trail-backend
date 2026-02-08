@@ -46,6 +46,7 @@ type ApplicationDetail struct {
 	SalaryMax      *int                `json:"salary_max"`
 	CreatedAt      time.Time           `json:"created_at"`
 	AppliedAt      time.Time           `json:"applied_at"`
+	InterviewAt    *time.Time          `json:"interview_at"`
 	ModifiedAt     time.Time           `json:"modified_at"`
 	StatusName     string              `json:"status_name"`
 	StatusColor    string              `json:"status_color"`
@@ -54,6 +55,7 @@ type ApplicationDetail struct {
 	Events         []*ApplicationEvent `json:"events"`
 	Notes          []*Note             `json:"notes"`
 	Files          []*File             `json:"files"`
+	Reminders      []*Reminder         `json:"reminders"`
 }
 
 type CompanyContact struct {
@@ -116,6 +118,17 @@ type File struct {
 	FileID        int64     `json:"file_id"`
 	ApplicationID int64     `json:"application_id"`
 	Filename      string    `json:"filename"`
+	CreatedAt     time.Time `json:"created_at"`
+	ModifiedAt    time.Time `json:"modified_at"`
+}
+
+type Reminder struct {
+	ReminderID    int64     `json:"reminder_id"`
+	ApplicationID int64     `json:"application_id"`
+	Title         string    `json:"title"`
+	Description   *string   `json:"description"`
+	RemindAt      time.Time `json:"remind_at"`
+	IsCompleted   bool      `json:"is_completed"`
 	CreatedAt     time.Time `json:"created_at"`
 	ModifiedAt    time.Time `json:"modified_at"`
 }
