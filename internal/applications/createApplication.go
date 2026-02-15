@@ -45,11 +45,6 @@ type Request struct {
 
 func CreateApplication(w http.ResponseWriter, r *http.Request, s *services.AppServiceInterface) {
 
-	if r.Method != http.MethodPost {
-		api.RequestErrorHandler(w, errors.New("invalid method"))
-		return
-	}
-
 	var req Request
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		log.Error(err)

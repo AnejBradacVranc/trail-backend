@@ -19,6 +19,11 @@ type postgreSQL struct {
 	db *pgxpool.Pool
 }
 
+func (p *postgreSQL) CreateReminder(applicationId int64, title string, description *string, remindAt time.Time, isCompleted bool) (int64, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (p *postgreSQL) GetUserByID(userId int64) (*User, error) {
 	query := `SELECT user_id,name, surname, email, password FROM users WHERE user_id = $1`
 	row := p.db.QueryRow(context.Background(), query, userId)

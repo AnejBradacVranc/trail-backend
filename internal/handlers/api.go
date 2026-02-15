@@ -5,6 +5,7 @@ import (
 	"backend/internal/applicationStatuses"
 	"backend/internal/applications"
 	"backend/internal/auth"
+	"backend/internal/notes"
 	"backend/internal/platforms"
 	"backend/internal/services"
 	"backend/internal/statistics"
@@ -86,10 +87,6 @@ func Handler(r *http.ServeMux) {
 		}
 	})
 
-	r.HandleFunc("GET /platforms", func(w http.ResponseWriter, r *http.Request) {
-		platforms.GetPlatforms(w, r, db)
-	})
-
 	r.HandleFunc("POST /user/login", func(w http.ResponseWriter, r *http.Request) {
 		auth.Login(w, r, db)
 	})
@@ -101,6 +98,11 @@ func Handler(r *http.ServeMux) {
 	r.HandleFunc("POST /user/logout", func(w http.ResponseWriter, r *http.Request) {
 		auth.Logout(w, r)
 	})
+
+	r.Handle("GET /platforms", Auth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		platforms.GetPlatforms(w, r, db)
+	})))
+
 	r.Handle("GET /user/check", Auth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		auth.Check(w, r, db)
 	})))
@@ -123,6 +125,10 @@ func Handler(r *http.ServeMux) {
 
 	r.Handle("POST /applications", Auth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		applications.CreateApplication(w, r, s)
+	})))
+
+	r.Handle("POST /notes", Auth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		notes.CreateNote(w, r, db)
 	})))
 
 }

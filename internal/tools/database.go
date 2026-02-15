@@ -152,12 +152,6 @@ type UserPublic struct {
 }
 
 type DbInterface interface {
-	SetupDatabase() error
-	CloseDatabase()
-	CreateApplication(ctx context.Context, tx *pgx.Tx, userId int64, statusId int64, companyId int64, jobTitle string, platformId int64, jobUrl *string, salaryMin *int, salaryMax *int, appliedAt time.Time, interviewAt *time.Time) (int64, error)
-	CreateCompany(ctx context.Context, tx *pgx.Tx, name string, location string, employeesCount *int) (int64, error)
-	CreateNote(ctx context.Context, tx *pgx.Tx, applicationId int64, noteContent string) (int64, error)
-	CreateFile(ctx context.Context, tx *pgx.Tx, applicationId int64, filename string) (int64, error)
 	GetApplicationByID(applicationId int64) (*ApplicationDetail, error)
 	GetApplicationsFromUserByID(userId int64, statusIds ...int64) ([]*ApplicationSummary, error)
 	GetStatuses() ([]*ApplicationStatus, error)
@@ -165,9 +159,20 @@ type DbInterface interface {
 	GetUserByEmail(email string) (*User, error)
 	GetUserByID(userId int64) (*User, error)
 	GetStatisticsSummary(userId int64) ([]*StatisticsSummary, error)
-	LoginUser(email string, password string) (*User, error)
+
+	CreateApplication(ctx context.Context, tx *pgx.Tx, userId int64, statusId int64, companyId int64, jobTitle string, platformId int64, jobUrl *string, salaryMin *int, salaryMax *int, appliedAt time.Time, interviewAt *time.Time) (int64, error)
+	CreateCompany(ctx context.Context, tx *pgx.Tx, name string, location string, employeesCount *int) (int64, error)
+	CreateNote(ctx context.Context, tx *pgx.Tx, applicationId int64, noteContent string) (int64, error)
+	CreateFile(ctx context.Context, tx *pgx.Tx, applicationId int64, filename string) (int64, error)
 	CreateUser(name string, surname string, email string, password string) (int64, error)
+	CreateReminder(applicationId int64, title string, description *string, remindAt time.Time, isCompleted bool) (int64, error)
+
+	LoginUser(email string, password string) (*User, error)
+
 	BeginTx(ctx context.Context) (*pgx.Tx, error)
+
+	SetupDatabase() error
+	CloseDatabase()
 }
 
 func NewDatabase() (*DbInterface, error) {
