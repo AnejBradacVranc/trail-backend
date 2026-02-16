@@ -163,9 +163,13 @@ type DbInterface interface {
 	CreateApplication(ctx context.Context, tx *pgx.Tx, userId int64, statusId int64, companyId int64, jobTitle string, platformId int64, jobUrl *string, salaryMin *int, salaryMax *int, appliedAt time.Time, interviewAt *time.Time) (int64, error)
 	CreateCompany(ctx context.Context, tx *pgx.Tx, name string, location string, employeesCount *int) (int64, error)
 	CreateNote(ctx context.Context, tx *pgx.Tx, applicationId int64, noteContent string) (int64, error)
+	UpdateNote(ctx context.Context, tx *pgx.Tx, noteId int64, noteContent string) error
+	DeleteNote(noteId int64) error
 	CreateFile(ctx context.Context, tx *pgx.Tx, applicationId int64, filename string) (int64, error)
 	CreateUser(name string, surname string, email string, password string) (int64, error)
 	CreateReminder(applicationId int64, title string, description *string, remindAt time.Time, isCompleted bool) (int64, error)
+	UpdateReminder(reminderId int64, title *string, description *string, remindAt *time.Time, isCompleted *bool) error
+	DeleteReminder(reminderId int64) error
 
 	LoginUser(email string, password string) (*User, error)
 

@@ -7,6 +7,7 @@ import (
 	"backend/internal/auth"
 	"backend/internal/notes"
 	"backend/internal/platforms"
+	"backend/internal/reminders"
 	"backend/internal/services"
 	"backend/internal/statistics"
 	"backend/internal/tools"
@@ -129,6 +130,26 @@ func Handler(r *http.ServeMux) {
 
 	r.Handle("POST /notes", Auth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		notes.CreateNote(w, r, db)
+	})))
+
+	r.Handle("PUT /notes/{id}", Auth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		notes.UpdateNote(w, r, db)
+	})))
+
+	r.Handle("DELETE /notes/{id}", Auth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		notes.DeleteNote(w, r, db)
+	})))
+
+	r.Handle("POST /reminders", Auth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reminders.CreateReminder(w, r, db)
+	})))
+
+	r.Handle("PUT /reminders/{id}", Auth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reminders.UpdateReminder(w, r, db)
+	})))
+
+	r.Handle("DELETE /reminders/{id}", Auth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reminders.DeleteReminder(w, r, db)
 	})))
 
 }

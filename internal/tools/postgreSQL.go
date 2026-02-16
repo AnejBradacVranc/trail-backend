@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
@@ -19,9 +20,43 @@ type postgreSQL struct {
 	db *pgxpool.Pool
 }
 
+func (p *postgreSQL) DeleteReminder(reminderId int64) error {
+	query := `DELETE FROM reminders WHERE reminder_id = $1`
+	cmdTag, err := p.db.Exec(context.Background(), query, reminderId)
+	if err != nil {
+		return err
+	}
+	if cmdTag.RowsAffected() == 0 {
+		return fmt.Errorf("no reminder deleted for id %d", reminderId)
+	}
+	return nil
+}
+
+func (p *postgreSQL) UpdateReminder(reminderId int64, title *string, description *string, remindAt *time.Time, isCompleted *bool) error {
+	query := `UPDATE reminders 
+		SET title = COALESCE($1, title), description = COALESCE( $2, description), remind_at =COALESCE( $3, remind_at), is_completed = COALESCE( $4, is_completed), modified_at = now()
+		WHERE reminder_id = $5`
+
+	cmdTag, err := p.db.Exec(context.Background(), query, title, description, remindAt, isCompleted, reminderId)
+	if err != nil {
+		return err
+	}
+	if cmdTag.RowsAffected() == 0 {
+		return fmt.Errorf("no reminder updated for id %d", reminderId)
+	}
+	return nil
+}
+
 func (p *postgreSQL) CreateReminder(applicationId int64, title string, description *string, remindAt time.Time, isCompleted bool) (int64, error) {
-	//TODO implement me
-	panic("implement me")
+	query := `INSERT INTO reminders(application_id, title, description, remind_at, is_completed)
+		VALUES ($1, $2, $3, $4, $5) RETURNING reminder_id`
+
+	var id int64
+	err := p.db.QueryRow(context.Background(), query, applicationId, title, description, remindAt, isCompleted).Scan(&id)
+	if err != nil {
+		return -1, err
+	}
+	return id, nil
 }
 
 func (p *postgreSQL) GetUserByID(userId int64) (*User, error) {
@@ -349,6 +384,36 @@ func (p *postgreSQL) CreateNote(ctx context.Context, tx *pgx.Tx, applicationId i
 	return id, nil
 }
 
+func (p *postgreSQL) UpdateNote(ctx context.Context, tx *pgx.Tx, noteId int64, noteContent string) error {
+	query := `UPDATE notes SET note_content = $1, modified_at = now() WHERE note_id = $2`
+	var cmdTag pgconn.CommandTag
+	var err error
+	if tx != nil {
+		cmdTag, err = (*tx).Exec(ctx, query, noteContent, noteId)
+	} else {
+		cmdTag, err = p.db.Exec(ctx, query, noteContent, noteId)
+	}
+	if err != nil {
+		return err
+	}
+	if cmdTag.RowsAffected() == 0 {
+		return fmt.Errorf("no note updated for id %d", noteId)
+	}
+	return nil
+}
+
+func (p *postgreSQL) DeleteNote(noteId int64) error {
+	query := `DELETE FROM notes WHERE note_id = $1`
+	cmdTag, err := p.db.Exec(context.Background(), query, noteId)
+	if err != nil {
+		return err
+	}
+	if cmdTag.RowsAffected() == 0 {
+		return fmt.Errorf("no note deleted for id %d", noteId)
+	}
+	return nil
+}
+
 func (p *postgreSQL) CreateCompany(ctx context.Context, tx *pgx.Tx, name string, location string, employeesCount *int) (int64, error) {
 	query := `INSERT INTO companies(name, location, employee_count) 
 				VALUES ($1, $2, $3) 
@@ -649,7 +714,7 @@ func (p *postgreSQL) GetApplicationByID(applicationId int64) (*ApplicationDetail
 		detail.CompanyContact = companyContact
 	}
 
-	remindersQuery := `SELECT reminder_id, application_id, title, description, remind_at, is_completed  FROM reminders WHERE application_id = $1`
+	remindersQuery := `SELECT reminder_id, application_id, title, description, remind_at, is_completed  FROM reminders WHERE application_id = $1 ORDER BY remind_at DESC`
 
 	rows, err = p.db.Query(context.Background(), remindersQuery, applicationId)
 
